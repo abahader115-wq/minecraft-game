@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html><head><title>Minecraft 3D - Public</title>
+<style>body{margin:0;overflow:hidden;font-family:Arial}#blocker{position:absolute;width:100%;height:100%;background:rgba(0,0,0,0.8);color:white;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:10}#crosshair{position:absolute;top:50%;left:50%;width:20px;height:20px;margin:-10px 0 0 -10px;color:white;font-size:24px;text-align:center;pointer-events:none;z-index:5}#hotbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:6}.slot{width:55px;height:55px;border:3px solid #333;background:#8B8B8B;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:12px;text-align:center;color:white;text-shadow:1px 1px 2px black}.slot.active{border-color:yellow;transform:scale(1.2);box-shadow:0 0 15px yellow}#help{position:absolute;top:10px;left:10px;color:white;background:rgba(0,0,0,0.5);padding:10px;border-radius:5px;font-size:13px;z-index:6}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<div id="blocker"><div style="text-align:center"><h1>⛏️ REAL MINECRAFT 3D ⛏️</h1><p>Click karo start karne ke liye</p><p>WASD = Chalna | SPACE = Jump | MOUSE = Dekhna</p><p>Left Click = Torna | Right Click = Lagana</p><p style="color:yellow">Neeche wale dabbo par CLICK karke Block Badlo!</p></div></div>
+<div id="crosshair">+</div>
+<div id="help">WASD=Move | SPACE=Jump<br>Left Click=Break<br>Right Click=Place<br>Neeche Click=Block Badlo</div>
+<div id="hotbar"></div>
+<script type="module">
+import * as THREE from 'three'; import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+let scene=new THREE.Scene(); scene.background=new THREE.Color(0x87CEEB); scene.fog=new THREE.Fog(0x87CEEB,20,100);
+let camera=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,1000);
+let renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(window.innerWidth,window.innerHeight); document.body.appendChild(renderer.domElement);
+let controls=new PointerLockControls(camera,document.body); let blocker=document.getElementById('blocker');
+blocker.addEventListener('click',()=>{controls.lock();}); controls.addEventListener('lock',()=>{blocker.style.display='none';}); controls.addEventListener('unlock',()=>{blocker.style.display='flex';});
+scene.add(new THREE.AmbientLight(0xffffff,0.9)); let dl=new THREE.DirectionalLight(0xffffff,1); dl.position.set(10,20,10); scene.add(dl);
+const BLOCKS=[{name:'Grass',color:0x3cb043},{name:'Dirt',color:0x8B4513},{name:'Stone',color:0x7f7f7f},{name:'Wood',color:0x5C4033},{name:'Planks',color:0xC19A6B}];
+let selected=0; let hotbarDiv=document.getElementById('hotbar');
+function updateHotbar(){
+ hotbarDiv.innerHTML='';
+ BLOCKS.forEach((b,i)=>{
+  let d=document.createElement('div'); d.className='slot'+(i==selected?' active':''); d.style.backgroundColor='#'+b.color.toString(16).padStart(6,'0');
+  d.innerHTML=b.name+'<br>'+(i+1);
+  d.onclick=(e)=>{ e.stopPropagation(); selected=i; updateHotbar(); };
+  hotbarDiv.appendChild(d);
+ });
+} updateHotbar();
+let blocks=new Map(); let geom=new THREE.BoxGeometry(1,1,1);
+function addBlock(x,y,z,t){let k=`${x},${y},${z}`; if(blocks.has(k)) return; let m=new THREE.Mesh(geom,new THREE.MeshLambertMaterial({color:BLOCKS[t].color})); m.position.set(x,y,z); m.userData.key=k; scene.add(m); blocks.set(k,m);}
+function removeBlock(o){scene.remove(o); blocks.delete(o.userData.key);}
+for(let x=-15;x<15;x++){for(let z=-15;z<15;z++){addBlock(x,-1,z,0); addBlock(x,-2,z,1); addBlock(x,-3,z,2); if(Math.random()<0.03){let h=Math.floor(Math.random()*4)+1; for(let y=0;y<h;y++) addBlock(x,y,z,3);}}}
+let raycaster=new THREE.Raycaster(); let center=new THREE.Vector2(0,0);
+function getTarget(){raycaster.setFromCamera(center,camera); let inter=raycaster.intersectObjects(Array.from(blocks.values())); return inter.length>0?inter[0]:null;}
+document.addEventListener('mousedown',(e)=>{if(!controls.isLocked) return; let t=getTarget(); if(!t) return; if(e.button===0){if(t.object.position.y>-2) removeBlock(t.object);} else if(e.button===2){let p=t.object.position.clone().add(t.face.normal); addBlock(Math.round(p.x),Math.round(p.y),Math.round(p.z),selected);}});
+document.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('keydown',(e)=>{if(e.key>='1'&&e.key<='5'){selected=parseInt(e.key)-1; updateHotbar();}});
+let vel=new THREE.Vector3(); let onGround=false; let keys={}; document.addEventListener('keydown',e=>keys[e.code]=true); document.addEventListener('keyup',e=>keys[e.code]=false);
+function animate(){requestAnimationFrame(animate); if(controls.isLocked){vel.y-=0.02; camera.position.y+=vel.y; if(camera.position.y<1.5){camera.position.y=1.5; vel.y=0; onGround=true;} else onGround=false; if(keys['KeyW']) controls.moveForward(0.15); if(keys['KeyS']) controls.moveForward(-0.15); if(keys['KeyA']) controls.moveRight(-0.15); if(keys['KeyD']) controls.moveRight(0.15); if(keys['Space']&&onGround) vel.y=0.25;} renderer.render(scene,camera);} animate();
+window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight);});
+</script></body></html>
